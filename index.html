@@ -119,7 +119,7 @@ tr:hover td{background:#fff8fa}
   .header-subtitle{font-size:9px}
   .tabs,.form-row,.btn,.filter-row,.section-header .btn{display:none!important}
   .panel{display:block!important}
-  #tab-pacientes,#tab-lancamentos,#tab-configuracoes,#tab-estoque{display:none!important}
+  #tab-pacientes,#tab-lancamentos,#tab-configuracoes,#tab-estoque,#tab-agenda{display:none!important}
   #tab-relatorio{display:block!important}
   .app{max-width:100%;padding:4px 0}
   .card{box-shadow:none;border:1px solid #e8c0cc;padding:6px 8px;border-radius:6px}
@@ -140,6 +140,34 @@ tr:hover td{background:#fff8fa}
   .grand-total-value{font-size:16px}
   #area-relatorio{page-break-inside:auto}
   .print-ultimo-bloco{page-break-inside:avoid!important;page-break-after:avoid!important}
+}
+
+/* ── AGENDA ──────────────────────────────────────────────────────────── */
+.ag-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.ag-cal-hdr{font-size:10px;font-weight:700;color:#b07080;text-align:center;padding:4px 0}
+.ag-cal-day{min-height:38px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:5px;border-radius:8px;font-size:12px;cursor:pointer;position:relative;border:1px solid transparent;transition:background .15s;gap:2px}
+.ag-cal-day:hover{background:#fff0f4}
+.ag-cal-day.ag-today{background:#fdf0f4;border-color:#e06080;font-weight:700;color:#b05070}
+.ag-cal-day.ag-sel{background:#e06080!important;color:#fff!important;font-weight:700;border-color:#e06080!important}
+.ag-cal-day.ag-other{color:#ddd;cursor:default}
+.ag-cal-day.ag-other:hover{background:none}
+.ag-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.ag-item{background:#fff;border:1px solid #f0d0da;border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:flex-start;gap:12px;box-shadow:0 1px 3px rgba(200,100,120,0.05);transition:box-shadow .15s}
+.ag-item:hover{box-shadow:0 3px 10px rgba(200,100,120,0.12)}
+.ag-bar{width:4px;border-radius:2px;flex-shrink:0;align-self:stretch;min-height:36px}
+.ag-title{font-size:14px;font-weight:700;color:#7a3050;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ag-meta{font-size:11px;color:#b07080;margin-top:2px}
+.ag-desc{font-size:12px;color:#888;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge-reuniao{background:#e6f1fb;color:#185fa5}
+.badge-consulta{background:#eaf3de;color:#3b6d11}
+.badge-pessoal{background:#f5e8f8;color:#7a3050}
+.badge-outro{background:#f0f0f0;color:#666}
+@media(max-width:600px){
+  .ag-cal-day{min-height:32px;font-size:11px;padding-top:3px}
+  .ag-cal-day.ag-other{display:none}
+  .ag-title{font-size:13px}
+  .ag-item{flex-wrap:wrap;gap:8px}
+  .ag-bar{width:100%;height:4px;min-height:0;align-self:auto}
 }
 </style>
 </head>
@@ -204,6 +232,7 @@ tr:hover td{background:#fff8fa}
     <button class="tab" onclick="showTab('estoque')">Estoque</button>
     <button class="tab" onclick="showTab('configuracoes')">Configurações</button>
     <button class="tab" onclick="showTab('relatorio')">Relatório mensal</button>
+    <button class="tab" onclick="showTab('agenda')">Agenda</button>
   </div>
 
   <!-- PACIENTES -->
@@ -442,6 +471,91 @@ tr:hover td{background:#fff8fa}
       </div>
     </div>
   </div>
+
+  <!-- AGENDA -->
+  <div id="tab-agenda" class="panel">
+    <div class="card">
+      <div class="card-title">Novo compromisso</div>
+      <div id="alert-agenda"></div>
+      <div class="form-row">
+        <div><label>Título</label><input id="ag-titulo" type="text" placeholder="Ex: Reunião com família"></div>
+        <div><label>Tipo</label>
+          <select id="ag-tipo">
+            <option value="compromisso">Compromisso</option>
+            <option value="reuniao">Reunião</option>
+            <option value="consulta">Consulta</option>
+            <option value="pessoal">Pessoal</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row three">
+        <div><label>Data</label><input id="ag-data" type="date"></div>
+        <div><label>Hora início</label><input id="ag-hora-ini" type="time"></div>
+        <div><label>Hora fim</label><input id="ag-hora-fim" type="time"></div>
+      </div>
+      <div class="form-row">
+        <div><label>Local</label><input id="ag-local" type="text" placeholder="Opcional"></div>
+        <div><label>Descrição</label><input id="ag-desc" type="text" placeholder="Opcional"></div>
+      </div>
+      <button class="btn btn-primary" onclick="adicionarCompromisso()">Adicionar compromisso</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <button class="btn btn-sm" onclick="agMesAnterior()">‹ Anterior</button>
+        <span id="ag-mes-label" style="font-size:15px;font-weight:700;color:#b05070"></span>
+        <button class="btn btn-sm" onclick="agMesProximo()">Próximo ›</button>
+      </div>
+      <div class="ag-cal" id="ag-cal-grid">
+        <div class="ag-cal-hdr">Dom</div>
+        <div class="ag-cal-hdr">Seg</div>
+        <div class="ag-cal-hdr">Ter</div>
+        <div class="ag-cal-hdr">Qua</div>
+        <div class="ag-cal-hdr">Qui</div>
+        <div class="ag-cal-hdr">Sex</div>
+        <div class="ag-cal-hdr">Sáb</div>
+      </div>
+    </div>
+
+    <div class="section-header">
+      <span id="ag-lista-label" style="font-size:15px;font-weight:700;color:#b05070">Compromissos</span>
+      <button class="btn btn-sm" onclick="agLimparSelecao()" id="ag-btn-limpar" style="display:none">Ver todos do mês</button>
+    </div>
+    <div id="ag-lista"><div class="empty">Nenhum compromisso cadastrado.</div></div>
+  </div>
+</div>
+
+<!-- MODAL AGENDA -->
+<div id="modal-ag-overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.45);z-index:102;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:1.75rem 2rem;width:90%;max-width:520px;box-shadow:0 8px 32px rgba(180,60,90,0.18);max-height:90vh;overflow-y:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+      <div style="font-size:16px;font-weight:700;color:#b05070;display:flex;align-items:center;gap:6px"><span style="display:inline-block;width:4px;height:18px;background:#e06080;border-radius:2px"></span>Editar compromisso</div>
+      <button onclick="fecharModalAg()" style="background:none;border:none;font-size:20px;color:#c08090;cursor:pointer;line-height:1">×</button>
+    </div>
+    <input type="hidden" id="eag-id">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:12px">
+      <div style="grid-column:1/-1"><label style="font-size:12px;color:#b07080;display:block;margin-bottom:4px;font-weight:600">Título</label><input id="eag-titulo" type="text" style="width:100%;padding:9px 11px;border:1.5px solid #f0d0da;border-radius:8px;font-size:14px;color:#444;outline:none"></div>
+      <div><label style="font-size:12px;color:#b07080;display:block;margin-bottom:4px;font-weight:600">Tipo</label>
+        <select id="eag-tipo" style="width:100%;padding:9px 11px;border:1.5px solid #f0d0da;border-radius:8px;font-size:14px;color:#444;outline:none">
+          <option value="compromisso">Compromisso</option>
+          <option value="reuniao">Reunião</option>
+          <option value="consulta">Consulta</option>
+          <option value="pessoal">Pessoal</option>
+          <option value="outro">Outro</option>
+        </select>
+      </div>
+      <div><label style="font-size:12px;color:#b07080;display:block;margin-bottom:4px;font-weight:600">Data</label><input id="eag-data" type="date" style="width:100%;padding:9px 11px;border:1.5px solid #f0d0da;border-radius:8px;font-size:14px;color:#444;outline:none"></div>
+      <div><label style="font-size:12px;color:#b07080;display:block;margin-bottom:4px;font-weight:600">Hora início</label><input id="eag-hora-ini" type="time" style="width:100%;padding:9px 11px;border:1.5px solid #f0d0da;border-radius:8px;font-size:14px;color:#444;outline:none"></div>
+      <div><label style="font-size:12px;color:#b07080;display:block;margin-bottom:4px;font-weight:600">Hora fim</label><input id="eag-hora-fim" type="time" style="width:100%;padding:9px 11px;border:1.5px solid #f0d0da;border-radius:8px;font-size:14px;color:#444;outline:none"></div>
+      <div><label style="font-size:12px;color:#b07080;display:block;margin-bottom:4px;font-weight:600">Local</label><input id="eag-local" type="text" style="width:100%;padding:9px 11px;border:1.5px solid #f0d0da;border-radius:8px;font-size:14px;color:#444;outline:none" placeholder="Opcional"></div>
+      <div style="grid-column:1/-1"><label style="font-size:12px;color:#b07080;display:block;margin-bottom:4px;font-weight:600">Descrição</label><input id="eag-desc" type="text" style="width:100%;padding:9px 11px;border:1.5px solid #f0d0da;border-radius:8px;font-size:14px;color:#444;outline:none" placeholder="Opcional"></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:1rem">
+      <button onclick="fecharModalAg()" style="padding:9px 20px;border-radius:8px;font-size:13px;cursor:pointer;border:1.5px solid #f0d0da;background:#fff;color:#b05070;font-weight:600">Cancelar</button>
+      <button onclick="salvarEdicaoAg()" style="padding:9px 20px;border-radius:8px;font-size:13px;cursor:pointer;border:1.5px solid #c04060;background:linear-gradient(135deg,#e06080,#c04060);color:#fff;font-weight:700">Salvar alterações</button>
+    </div>
+  </div>
 </div>
 
 <!-- MODAL EDIÇÃO LANÇAMENTO -->
@@ -501,6 +615,7 @@ const API_URL='https://script.google.com/macros/s/AKfycbyObGHB3OHqRwF1NPesQ88YuA
 let _nuvemDisponivel=true;
 let pacientes=[];
 let lancamentos=[];
+let compromissos=(()=>{const s=localStorage.getItem('cf_compromissos');if(!s)return[];try{return JSON.parse(s);}catch(e){return[];}})();
 let configs=(()=>{const s=localStorage.getItem('cf_configs');const d={"m":"0","g":"0","xg":"0","cg":"0","lenco":"0","taxa_admin":"0"};if(!s)return d;const p=JSON.parse(s);return Object.assign(d,p);})();
 
 document.getElementById('logo-header').src=LOGO_SRC;
@@ -514,6 +629,7 @@ function save(){
     localStorage.setItem('cf_pacientes',JSON.stringify(pacientes));
     localStorage.setItem('cf_lancamentos',JSON.stringify(lancamentos));
     localStorage.setItem('cf_configs',JSON.stringify(configs));
+    localStorage.setItem('cf_compromissos',JSON.stringify(compromissos));
   }catch(e){}
   // Salvar na nuvem (Google Sheets)
   salvarNaNuvem();
@@ -521,7 +637,7 @@ function save(){
 
 function salvarNaNuvem(){
   if(!_nuvemDisponivel) return;
-  const payload={action:'save',pacientes,lancamentos,configs};
+  const payload={action:'save',pacientes,lancamentos,configs,compromissos};
   fetch(API_URL,{
     method:'POST',
     body:JSON.stringify(payload)
@@ -562,11 +678,13 @@ function carregarDaNuvem(callback){
       if(data.error) throw new Error(data.error);
       pacientes  = data.pacientes   || [];
       lancamentos= data.lancamentos || [];
+      compromissos = data.compromissos || [];
       if(data.configs) configs=Object.assign(configs, data.configs);
       // Atualizar localStorage como cache
       localStorage.setItem('cf_pacientes',JSON.stringify(pacientes));
       localStorage.setItem('cf_lancamentos',JSON.stringify(lancamentos));
       localStorage.setItem('cf_configs',JSON.stringify(configs));
+      localStorage.setItem('cf_compromissos',JSON.stringify(compromissos));
       _nuvemDisponivel=true;
       mostrarLoadingOverlay(false);
       if(callback) callback();
@@ -592,13 +710,14 @@ function mostrarLoadingOverlay(show){
 }
 
 function showTab(t){
-  document.querySelectorAll('.tab').forEach((el,i)=>{el.classList.toggle('active',['pacientes','lancamentos','estoque','configuracoes','relatorio'][i]===t);});
+  document.querySelectorAll('.tab').forEach((el,i)=>{el.classList.toggle('active',['pacientes','lancamentos','estoque','configuracoes','relatorio','agenda'][i]===t);});
   document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
   document.getElementById('tab-'+t).classList.add('active');
   if(t==='lancamentos'){atualizarSelects();renderLancamentos();showSubTab('entrada');}
   if(t==='relatorio'){atualizarSelects();initRelatorio();}
   if(t==='configuracoes')carregarConfigs();
   if(t==='estoque'){atualizarSelects();initEstoque();}
+  if(t==='agenda'){initAgenda();}
 }
 
 function initials(n){return n.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase()}
@@ -886,6 +1005,7 @@ function exportarDados(){
     pacientes:pacientes,
     lancamentos:lancamentos,
     configs:configs,
+    compromissos:compromissos,
     exportadoEm:new Date().toISOString()
   };
   const blob=new Blob([JSON.stringify(dados,null,2)],{type:'application/json'});
@@ -913,6 +1033,7 @@ function importarDados(event){
       pacientes=dados.pacientes;
       lancamentos=dados.lancamentos;
       if(dados.configs) configs=dados.configs;
+      if(dados.compromissos) compromissos=dados.compromissos;
       save();
       renderPacientes();
       atualizarSelects();
@@ -955,7 +1076,8 @@ function salvarNaNuvem(){
     action:'save',
     pacientes:pacientes,
     lancamentos:lancamentos,
-    configs:configs
+    configs:configs,
+    compromissos:compromissos
   });
   xhr(API_URL+'?action=save', payload, function(err, data){
     if(err||!data||data.error){
@@ -994,9 +1116,11 @@ function carregarDaNuvem(callback){
     var sp=localStorage.getItem('cf_pacientes');
     var sl=localStorage.getItem('cf_lancamentos');
     var sc=localStorage.getItem('cf_configs');
+    var sk=localStorage.getItem('cf_compromissos');
     if(sp) try{pacientes=JSON.parse(sp);}catch(e){}
     if(sl) try{lancamentos=JSON.parse(sl);}catch(e){}
     if(sc) try{configs=Object.assign(configs,JSON.parse(sc));}catch(e){}
+    if(sk) try{compromissos=JSON.parse(sk);}catch(e){}
     finalizar();
   }, 8000);
 
@@ -1008,16 +1132,20 @@ function carregarDaNuvem(callback){
       var sp=localStorage.getItem('cf_pacientes');
       var sl=localStorage.getItem('cf_lancamentos');
       var sc=localStorage.getItem('cf_configs');
+      var sk=localStorage.getItem('cf_compromissos');
       if(sp) try{pacientes=JSON.parse(sp);}catch(e){}
       if(sl) try{lancamentos=JSON.parse(sl);}catch(e){}
       if(sc) try{configs=Object.assign(configs,JSON.parse(sc));}catch(e){}
+      if(sk) try{compromissos=JSON.parse(sk);}catch(e){}
     } else {
       pacientes   = data.pacientes   ||[];
       lancamentos = data.lancamentos ||[];
+      compromissos = data.compromissos ||[];
       if(data.configs) configs=Object.assign(configs,data.configs);
       localStorage.setItem('cf_pacientes',JSON.stringify(pacientes));
       localStorage.setItem('cf_lancamentos',JSON.stringify(lancamentos));
       localStorage.setItem('cf_configs',JSON.stringify(configs));
+      localStorage.setItem('cf_compromissos',JSON.stringify(compromissos));
       _nuvemDisponivel=true;
     }
     finalizar();
@@ -1440,6 +1568,232 @@ document.getElementById('modal-overlay').addEventListener('click',function(e){
 document.getElementById('modal-lanc-overlay').addEventListener('click',function(e){
   if(e.target===this)fecharModalLanc();
 });
+document.getElementById('modal-ag-overlay').addEventListener('click',function(e){
+  if(e.target===this)fecharModalAg();
+});
+
+// ── AGENDA ───────────────────────────────────────────────────────────────────
+var _agMes=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
+var _agDia=null;
+
+var AG_TIPOS={
+  compromisso:{label:'Compromisso',cor:'#e06080'},
+  reuniao:    {label:'Reunião',    cor:'#185fa5'},
+  consulta:   {label:'Consulta',  cor:'#3b6d11'},
+  pessoal:    {label:'Pessoal',   cor:'#7a3050'},
+  outro:      {label:'Outro',     cor:'#888888'}
+};
+
+function agUID(){return crypto.randomUUID?crypto.randomUUID():'ag'+Date.now()+Math.random().toString(36).slice(2,8);}
+
+function adicionarCompromisso(){
+  var titulo=document.getElementById('ag-titulo').value.trim();
+  var data=document.getElementById('ag-data').value;
+  var tipo=document.getElementById('ag-tipo').value;
+  var hIni=document.getElementById('ag-hora-ini').value;
+  var hFim=document.getElementById('ag-hora-fim').value;
+  var local=document.getElementById('ag-local').value.trim();
+  var desc=document.getElementById('ag-desc').value.trim();
+  if(!titulo){alert_('alert-agenda','Preencha o título do compromisso.','error');return;}
+  if(!data){alert_('alert-agenda','Selecione a data.','error');return;}
+  compromissos.push({id:agUID(),titulo:titulo,data:data,tipo:tipo,horaIni:hIni,horaFim:hFim,local:local,desc:desc});
+  save();
+  alert_('alert-agenda','Compromisso adicionado com sucesso!');
+  document.getElementById('ag-titulo').value='';
+  document.getElementById('ag-hora-ini').value='';
+  document.getElementById('ag-hora-fim').value='';
+  document.getElementById('ag-local').value='';
+  document.getElementById('ag-desc').value='';
+  // Navegar para o mês do compromisso adicionado
+  _agMes=data.slice(0,7);
+  _agDia=null;
+  renderAgCal();
+  renderAgLista();
+}
+
+function excluirCompromisso(id){
+  if(!confirm('Excluir este compromisso?'))return;
+  compromissos=compromissos.filter(function(c){return c.id!==id;});
+  save();
+  renderAgCal();
+  renderAgLista();
+}
+
+function abrirModalAg(id){
+  var c=compromissos.find(function(x){return x.id===id;});
+  if(!c)return;
+  document.getElementById('eag-id').value=c.id;
+  document.getElementById('eag-titulo').value=c.titulo;
+  document.getElementById('eag-tipo').value=c.tipo||'compromisso';
+  document.getElementById('eag-data').value=c.data;
+  document.getElementById('eag-hora-ini').value=c.horaIni||'';
+  document.getElementById('eag-hora-fim').value=c.horaFim||'';
+  document.getElementById('eag-local').value=c.local||'';
+  document.getElementById('eag-desc').value=c.desc||'';
+  document.getElementById('modal-ag-overlay').style.display='flex';
+}
+
+function fecharModalAg(){
+  document.getElementById('modal-ag-overlay').style.display='none';
+}
+
+function salvarEdicaoAg(){
+  var id=document.getElementById('eag-id').value;
+  var titulo=document.getElementById('eag-titulo').value.trim();
+  var data=document.getElementById('eag-data').value;
+  if(!titulo){alert('Preencha o título.');return;}
+  if(!data){alert('Selecione a data.');return;}
+  var idx=compromissos.findIndex(function(c){return c.id===id;});
+  if(idx<0)return;
+  compromissos[idx].titulo=titulo;
+  compromissos[idx].tipo=document.getElementById('eag-tipo').value;
+  compromissos[idx].data=data;
+  compromissos[idx].horaIni=document.getElementById('eag-hora-ini').value;
+  compromissos[idx].horaFim=document.getElementById('eag-hora-fim').value;
+  compromissos[idx].local=document.getElementById('eag-local').value.trim();
+  compromissos[idx].desc=document.getElementById('eag-desc').value.trim();
+  save();
+  fecharModalAg();
+  renderAgCal();
+  renderAgLista();
+}
+
+function agMesAnterior(){
+  var p=_agMes.split('-').map(Number);
+  var d=new Date(p[0],p[1]-2,1);
+  _agMes=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  _agDia=null;
+  renderAgCal();renderAgLista();
+}
+
+function agMesProximo(){
+  var p=_agMes.split('-').map(Number);
+  var d=new Date(p[0],p[1],1);
+  _agMes=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  _agDia=null;
+  renderAgCal();renderAgLista();
+}
+
+function agSelecionarDia(iso){
+  _agDia=(_agDia===iso)?null:iso;
+  renderAgCal();renderAgLista();
+}
+
+function agLimparSelecao(){
+  _agDia=null;
+  renderAgCal();renderAgLista();
+}
+
+function renderAgCal(){
+  var p=_agMes.split('-').map(Number);
+  var y=p[0],m=p[1];
+  var nomeMes=new Date(y,m-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+  document.getElementById('ag-mes-label').textContent=nomeMes.charAt(0).toUpperCase()+nomeMes.slice(1);
+
+  var hoje=new Date().toISOString().slice(0,10);
+  var primeiroDia=new Date(y,m-1,1);
+  var ultimoDia=new Date(y,m,0).getDate();
+  var iniciaSem=primeiroDia.getDay();
+
+  var diasComEv={};
+  compromissos.filter(function(c){return c.data.startsWith(_agMes);}).forEach(function(c){
+    if(!diasComEv[c.data])diasComEv[c.data]=[];
+    diasComEv[c.data].push(c.tipo||'compromisso');
+  });
+
+  var grid=document.getElementById('ag-cal-grid');
+  while(grid.children.length>7)grid.removeChild(grid.lastChild);
+
+  for(var i=0;i<iniciaSem;i++){
+    var el=document.createElement('div');
+    el.className='ag-cal-day ag-other';
+    grid.appendChild(el);
+  }
+
+  for(var d=1;d<=ultimoDia;d++){
+    var iso=y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var el=document.createElement('div');
+    el.className='ag-cal-day';
+    if(iso===hoje)el.classList.add('ag-today');
+    if(iso===_agDia)el.classList.add('ag-sel');
+    var span=document.createElement('span');
+    span.textContent=d;
+    el.appendChild(span);
+    if(diasComEv[iso]){
+      var dotWrap=document.createElement('div');
+      dotWrap.style.cssText='display:flex;gap:2px;justify-content:center;flex-wrap:wrap';
+      var tipos=[...new Set(diasComEv[iso])].slice(0,3);
+      tipos.forEach(function(t){
+        var dot=document.createElement('div');
+        dot.className='ag-dot';
+        dot.style.background=(iso===_agDia)?'#fff':((AG_TIPOS[t]||AG_TIPOS.outro).cor);
+        dotWrap.appendChild(dot);
+      });
+      el.appendChild(dotWrap);
+    }
+    (function(iso){el.addEventListener('click',function(){agSelecionarDia(iso);});})(iso);
+    grid.appendChild(el);
+  }
+}
+
+function renderAgLista(){
+  var lista=document.getElementById('ag-lista');
+  var label=document.getElementById('ag-lista-label');
+  var btnLimpar=document.getElementById('ag-btn-limpar');
+  var items;
+  if(_agDia){
+    items=compromissos.filter(function(c){return c.data===_agDia;});
+    var pt=_agDia.split('-');
+    label.textContent='Compromissos — '+pt[2]+'/'+pt[1]+'/'+pt[0];
+    btnLimpar.style.display='';
+  } else {
+    items=compromissos.filter(function(c){return c.data.startsWith(_agMes);});
+    var p=_agMes.split('-').map(Number);
+    var nm=new Date(p[0],p[1]-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+    label.textContent='Compromissos — '+nm.charAt(0).toUpperCase()+nm.slice(1);
+    btnLimpar.style.display='none';
+  }
+  items=items.slice().sort(function(a,b){
+    return (a.data+(a.horaIni||'00:00')).localeCompare(b.data+(b.horaIni||'00:00'));
+  });
+  if(!items.length){
+    lista.innerHTML='<div class="empty">Nenhum compromisso neste período.</div>';
+    return;
+  }
+  lista.innerHTML=items.map(function(c){
+    var tipo=AG_TIPOS[c.tipo||'compromisso']||AG_TIPOS.outro;
+    var pt=c.data.split('-');
+    var horario='';
+    if(c.horaIni)horario=c.horaIni+(c.horaFim?' — '+c.horaFim:'');
+    var badgeCls='badge badge-'+(c.tipo||'compromisso');
+    return '<div class="ag-item">'
+      +'<div class="ag-bar" style="background:'+tipo.cor+'"></div>'
+      +'<div style="flex:1;min-width:0">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">'
+      +'<span class="'+badgeCls+'">'+tipo.label+'</span>'
+      +'<span style="font-size:11px;color:#b07080;font-weight:600">'+pt[2]+'/'+pt[1]+'/'+pt[0]+(horario?' · '+horario:'')+'</span>'
+      +'</div>'
+      +'<div class="ag-title">'+esc(c.titulo)+'</div>'
+      +(c.local?'<div class="ag-meta">📍 '+esc(c.local)+'</div>':'')
+      +(c.desc?'<div class="ag-desc">'+esc(c.desc)+'</div>':'')
+      +'</div>'
+      +'<div style="display:flex;flex-direction:column;gap:6px;margin-left:8px;flex-shrink:0">'
+      +'<button class="btn btn-sm" onclick="abrirModalAg(\''+c.id+'\')" style="color:#b05070;border-color:#f0d0da">Editar</button>'
+      +'<button class="btn btn-sm btn-danger" onclick="excluirCompromisso(\''+c.id+'\')">Excluir</button>'
+      +'</div>'
+      +'</div>';
+  }).join('');
+}
+
+function initAgenda(){
+  var dataEl=document.getElementById('ag-data');
+  if(dataEl&&!dataEl.value)dataEl.value=new Date().toISOString().slice(0,10);
+  var hoje=new Date();
+  _agMes=hoje.getFullYear()+'-'+String(hoje.getMonth()+1).padStart(2,'0');
+  _agDia=null;
+  renderAgCal();
+  renderAgLista();
+}
 </script>
 
 
