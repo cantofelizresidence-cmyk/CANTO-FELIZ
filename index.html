@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -929,17 +929,32 @@ function mesclarConfigs(snapshotConfigs, localConfigs, freshConfigs){
   return freshConfigs||localConfigs;
 }
 
+// Mescla usada ao CARREGAR a página: a nuvem manda em quem já existe nela,
+// mas nada que só existe localmente (ex: um salvamento anterior que falhou
+// de chegar na nuvem) é apagado — é preservado e reenviado.
+function mesclarSemPerder(localList, freshList){
+  var freshMap=new Map((freshList||[]).map(function(x){return [x.id,x];}));
+  var localMap=new Map((localList||[]).map(function(x){return [x.id,x];}));
+  var resultado=new Map(freshMap);
+  localMap.forEach(function(item,id){
+    if(!resultado.has(id)) resultado.set(id,item); // só local -> preserva
+  });
+  return Array.from(resultado.values());
+}
+
 function clone(obj){ return JSON.parse(JSON.stringify(obj)); }
 
 function salvarNaNuvem(){
   if(!_nuvemDisponivel) return;
   // Antes de salvar, busca a versão mais recente da nuvem e mescla com as
-  // mudanças feitas nesta máquina — evita apagar o que outra máquina já salvou.
+  // mudanças feitas nesta máquina. A nuvem manda em quem ela já tem, mas nada
+  // que só existe aqui localmente é apagado — evita que uma resposta vazia ou
+  // incompleta da nuvem apague dados que ainda não chegaram lá.
   buscarDadosNuvem(function(err, freshData){
     var pacientesFinal=pacientes, lancamentosFinal=lancamentos, configsFinal=configs;
     if(!err && freshData && !freshData.error){
-      pacientesFinal=mesclarLista(_cloudSnapshot.pacientes, pacientes, freshData.pacientes||[]);
-      lancamentosFinal=mesclarLista(_cloudSnapshot.lancamentos, lancamentos, normalizarLancamentos(freshData.lancamentos||[]));
+      pacientesFinal=mesclarSemPerder(pacientes, freshData.pacientes||[]);
+      lancamentosFinal=mesclarSemPerder(lancamentos, normalizarLancamentos(freshData.lancamentos||[]));
       configsFinal=mesclarConfigs(_cloudSnapshot.configs, configs, freshData.configs||configs);
       pacientes=pacientesFinal; lancamentos=lancamentosFinal; configs=configsFinal;
       if(typeof renderPacientes==='function') renderPacientes();
@@ -1015,14 +1030,29 @@ function carregarDaNuvem(callback){
           usarDadosLocais();
         }
       } else {
-        pacientes   = data.pacientes   ||[];
-        lancamentos = normalizarLancamentos(data.lancamentos||[]);
+        var freshPacientes   = data.pacientes   ||[];
+        var freshLancamentos = normalizarLancamentos(data.lancamentos||[]);
+        var localCacheP=[], localCacheL=[];
+        try{ localCacheP=JSON.parse(localStorage.getItem('cf_pacientes')||'[]'); }catch(e){}
+        try{ localCacheL=JSON.parse(localStorage.getItem('cf_lancamentos')||'[]'); }catch(e){}
+
+        pacientes   = mesclarSemPerder(localCacheP, freshPacientes);
+        lancamentos = mesclarSemPerder(localCacheL, freshLancamentos);
         if(data.configs) configs=Object.assign(configs,data.configs);
-        _cloudSnapshot={pacientes:clone(pacientes),lancamentos:clone(lancamentos),configs:clone(configs)};
+
+        // O snapshot reflete o que a nuvem REALMENTE tinha (não o que preservamos localmente)
+        _cloudSnapshot={pacientes:clone(freshPacientes),lancamentos:clone(freshLancamentos),configs:clone(configs)};
         localStorage.setItem('cf_pacientes',JSON.stringify(pacientes));
         localStorage.setItem('cf_lancamentos',JSON.stringify(lancamentos));
         localStorage.setItem('cf_configs',JSON.stringify(configs));
         _nuvemDisponivel=true;
+
+        // Se havia algo só local (ex: um salvamento anterior que não tinha ido pra
+        // nuvem), reenvia agora automaticamente, sem esperar a próxima ação do usuário.
+        if(pacientes.length!==freshPacientes.length || lancamentos.length!==freshLancamentos.length){
+          console.warn('Encontrados dados locais que não estavam na nuvem — reenviando agora.');
+          salvarNaNuvem();
+        }
         finalizar();
       }
     });
@@ -1043,8 +1073,8 @@ setInterval(function(){
       return;
     }
     _nuvemDisponivel=true;
-    pacientes=mesclarLista(_cloudSnapshot.pacientes, pacientes, freshData.pacientes||[]);
-    lancamentos=mesclarLista(_cloudSnapshot.lancamentos, lancamentos, normalizarLancamentos(freshData.lancamentos||[]));
+    pacientes=mesclarSemPerder(pacientes, freshData.pacientes||[]);
+    lancamentos=mesclarSemPerder(lancamentos, normalizarLancamentos(freshData.lancamentos||[]));
     configs=mesclarConfigs(_cloudSnapshot.configs, configs, freshData.configs||configs);
     _cloudSnapshot={pacientes:clone(pacientes),lancamentos:clone(lancamentos),configs:clone(configs)};
     localStorage.setItem('cf_pacientes',JSON.stringify(pacientes));
