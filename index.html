@@ -877,17 +877,25 @@ function limparTodosDados(){
 function xhr(url, body, callback){
   var x=new XMLHttpRequest();
   x.open(body?'POST':'GET', url, true);
-  if(body) x.setRequestHeader('Content-Type','text/plain;charset=utf-8');
+  if(body) x.setRequestHeader('Content-Type','application/x-www-form-urlencoded;charset=utf-8');
   x.onload=function(){
-    try{ callback(null, JSON.parse(x.responseText)); }
-    catch(e){ callback(e, null); }
+    try{ callback(null, JSON.parse(x.responseText), x.status, x.responseText); }
+    catch(e){ callback(e, null, x.status, x.responseText); }
   };
-  x.onerror=function(){ callback(new Error('Sem conexão'), null); };
+  x.onerror=function(){ callback(new Error('Sem conexão'), null, 0, ''); };
   x.send(body||null);
 }
 
+// Empacota o JSON como um campo de formulário (dados=...) em vez de mandar o
+// JSON puro no corpo do POST. O Google Apps Script redireciona toda chamada
+// (302) para outro domínio, e esse redirecionamento pode perder o corpo bruto
+// da requisição — mas preserva campos de formulário corretamente.
+function corpoFormulario(obj){
+  return 'dados='+encodeURIComponent(JSON.stringify(obj));
+}
+
 function buscarDadosNuvem(callback){
-  xhr(API_URL+'?action=load', JSON.stringify({action:'load'}), callback);
+  xhr(API_URL+'?action=load', corpoFormulario({action:'load'}), callback);
 }
 
 // Mescla uma lista (pacientes ou lançamentos) usando três versões:
@@ -962,8 +970,13 @@ function salvarNaNuvem(){
       var painel=document.querySelector('.panel.active');
       if(painel && painel.id==='tab-lancamentos' && typeof renderLancamentos==='function') renderLancamentos();
     }
-    var payload=JSON.stringify({action:'save',pacientes:pacientesFinal,lancamentos:lancamentosFinal,configs:configsFinal});
-    xhr(API_URL+'?action=save', payload, function(err2,data2){
+    var payload=corpoFormulario({action:'save',pacientes:pacientesFinal,lancamentos:lancamentosFinal,configs:configsFinal});
+    xhr(API_URL+'?action=save', payload, function(err2,data2,status2,raw2){
+      alert('DEBUG SALVAMENTO\n'
+        +'Enviando: '+pacientesFinal.length+' pacientes, '+lancamentosFinal.length+' lancamentos\n'
+        +'Erro JS: '+(err2?err2.message:'nenhum')+'\n'
+        +'Status HTTP: '+status2+'\n'
+        +'Resposta (primeiros 300 caracteres): '+String(raw2||'').slice(0,300));
       if(err2||!data2||data2.error){
         mostrarStatusNuvem('offline');
       } else {
