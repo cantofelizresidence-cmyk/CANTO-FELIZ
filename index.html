@@ -961,8 +961,8 @@ function salvarNaNuvem(){
   buscarDadosNuvem(function(err, freshData){
     var pacientesFinal=pacientes, lancamentosFinal=lancamentos, configsFinal=configs;
     if(!err && freshData && !freshData.error){
-      pacientesFinal=mesclarSemPerder(pacientes, freshData.pacientes||[]);
-      lancamentosFinal=mesclarSemPerder(lancamentos, normalizarLancamentos(freshData.lancamentos||[]));
+      pacientesFinal=mesclarLista(_cloudSnapshot.pacientes, pacientes, freshData.pacientes||[]);
+      lancamentosFinal=mesclarLista(_cloudSnapshot.lancamentos, lancamentos, normalizarLancamentos(freshData.lancamentos||[]));
       configsFinal=mesclarConfigs(_cloudSnapshot.configs, configs, freshData.configs||configs);
       pacientes=pacientesFinal; lancamentos=lancamentosFinal; configs=configsFinal;
       if(typeof renderPacientes==='function') renderPacientes();
@@ -1086,8 +1086,8 @@ setInterval(function(){
       return;
     }
     _nuvemDisponivel=true;
-    pacientes=mesclarSemPerder(pacientes, freshData.pacientes||[]);
-    lancamentos=mesclarSemPerder(lancamentos, normalizarLancamentos(freshData.lancamentos||[]));
+    pacientes=mesclarLista(_cloudSnapshot.pacientes, pacientes, freshData.pacientes||[]);
+    lancamentos=mesclarLista(_cloudSnapshot.lancamentos, lancamentos, normalizarLancamentos(freshData.lancamentos||[]));
     configs=mesclarConfigs(_cloudSnapshot.configs, configs, freshData.configs||configs);
     _cloudSnapshot={pacientes:clone(pacientes),lancamentos:clone(lancamentos),configs:clone(configs)};
     localStorage.setItem('cf_pacientes',JSON.stringify(pacientes));
