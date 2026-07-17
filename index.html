@@ -300,9 +300,12 @@ tr:hover td{background:#fff8fa}
 
     <div class="section-header">
       <span style="font-size:15px;font-weight:700;color:#b05070">Lançamentos recentes</span>
-      <div class="filter-row">
+      <div class="filter-row" style="align-items:center">
         <select id="filtro-paciente" onchange="renderLancamentos()"><option value="">Todos os pacientes</option></select>
-        <input type="month" id="filtro-mes" onchange="renderLancamentos()">
+        <span style="font-size:12px;color:#b07080;font-weight:600">De</span>
+        <input type="date" id="filtro-data-de" onchange="renderLancamentos()">
+        <span style="font-size:12px;color:#b07080;font-weight:600">Até</span>
+        <input type="date" id="filtro-data-ate" onchange="renderLancamentos()">
       </div>
     </div>
     <div class="card" style="padding:0;overflow:hidden">
@@ -553,7 +556,11 @@ function atualizarSelects(){
   ['l-paciente','e-paciente','filtro-paciente','rel-paciente','est-paciente'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
     const blank=(id==='filtro-paciente'||id==='rel-paciente')?'<option value="">Todos</option>':'<option value="">Selecione...</option>';
+    const valorAtual=el.value; // guarda o que estava selecionado antes de reconstruir a lista
     el.innerHTML=blank+opts;
+    if(valorAtual && pacientes.some(p=>p.id===valorAtual)){
+      el.value=valorAtual; // restaura a seleção (isso é o que evita "perder" o paciente ao sincronizar)
+    }
   });
 }
 
@@ -748,10 +755,12 @@ function excluirLancamento(id){lancamentos=lancamentos.filter(l=>l.id!==id);save
 
 function renderLancamentos(){
   const fpid=document.getElementById('filtro-paciente').value;
-  const fmes=document.getElementById('filtro-mes').value;
+  const fde=document.getElementById('filtro-data-de').value;
+  const fate=document.getElementById('filtro-data-ate').value;
   let lista=lancamentos.slice().reverse();
   if(fpid)lista=lista.filter(l=>l.pacienteId===fpid);
-  if(fmes)lista=lista.filter(l=>l.data.startsWith(fmes));
+  if(fde)lista=lista.filter(l=>l.data>=fde);
+  if(fate)lista=lista.filter(l=>l.data<=fate);
   const tbody=document.getElementById('tbody-lancamentos');
   if(!lista.length){tbody.innerHTML='<tr><td colspan="7" class="empty">Nenhum lançamento encontrado.</td></tr>';return;}
   tbody.innerHTML=lista.map(l=>{
@@ -1488,7 +1497,12 @@ function renderEstoque(){
 
 document.getElementById('l-data').value=new Date().toISOString().slice(0,10);
 document.getElementById('e-data').value=new Date().toISOString().slice(0,10);
-document.getElementById('filtro-mes').value=new Date().toISOString().slice(0,7);
+(function(){
+  const hoje=new Date();
+  const primeiroDiaMes=new Date(hoje.getFullYear(),hoje.getMonth(),1).toISOString().slice(0,10);
+  document.getElementById('filtro-data-de').value=primeiroDiaMes;
+  document.getElementById('filtro-data-ate').value=hoje.toISOString().slice(0,10);
+})();
 document.getElementById('est-mes').value=new Date().toISOString().slice(0,7);
 document.getElementById('rel-mes').value=new Date().toISOString().slice(0,7);
 // Logo no overlay de loading
