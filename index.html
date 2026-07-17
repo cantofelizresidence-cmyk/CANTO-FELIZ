@@ -512,13 +512,16 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 
 let _cloudSnapshot={pacientes:[],lancamentos:[],configs:{}};
 
-function save(){
-  // Salvar localmente como cache imediato
+function salvarLocal(){
   try{
     localStorage.setItem('cf_pacientes',JSON.stringify(pacientes));
     localStorage.setItem('cf_lancamentos',JSON.stringify(lancamentos));
     localStorage.setItem('cf_configs',JSON.stringify(configs));
   }catch(e){}
+}
+
+function save(){
+  salvarLocal();
   // Salvar na nuvem, mesclando com o que outras máquinas já salvaram
   // (implementação completa mais abaixo, junto da comunicação via xhr)
   salvarNaNuvem();
@@ -671,7 +674,7 @@ function registrarEntrada(){
   if(!pid){alert_('alert-entrada','Selecione um paciente.','error');return;}
   if(!data){alert_('alert-entrada','Selecione a data.','error');return;}
   if(!qtd||qtd<=0){alert_('alert-entrada','Informe a quantidade.','error');return;}
-  lancamentos.push({
+  var novoLancamento={
     id:(crypto.randomUUID?crypto.randomUUID():''+Date.now()+Math.random().toString(36).slice(2)),
     pacienteId:pid,
     data,
@@ -680,8 +683,9 @@ function registrarEntrada(){
     qtd,
     custo:0,
     obs
-  });
-  save();
+  };
+  lancamentos.push(novoLancamento);
+  salvarLancamentoRapido(novoLancamento);
   alert_('alert-entrada','Entrada registrada com sucesso!');
   document.getElementById('e-qtd').value='';
   document.getElementById('e-obs').value='';
@@ -742,8 +746,9 @@ function registrarLancamento(){
   }
 
   var novoId=crypto.randomUUID?crypto.randomUUID():'l'+Date.now()+Math.random().toString(36).slice(2,8);
-  lancamentos.push({id:novoId,pacienteId:pid,data:data,tipo:tipo,subtipo:subtipo,qtd:qtd,custo:custo,obs:obs});
-  save();
+  var novoLancamento={id:novoId,pacienteId:pid,data:data,tipo:tipo,subtipo:subtipo,qtd:qtd,custo:custo,obs:obs};
+  lancamentos.push(novoLancamento);
+  salvarLancamentoRapido(novoLancamento);
   alert_(alertId,'Lancamento registrado com sucesso!');
   if(qtdEl) qtdEl.value='';
   if(document.getElementById('l-obs')) document.getElementById('l-obs').value='';
@@ -901,6 +906,36 @@ function xhr(url, body, callback){
 // da requisição — mas preserva campos de formulário corretamente.
 function corpoFormulario(obj){
   return 'dados='+encodeURIComponent(JSON.stringify(obj));
+}
+
+// Caminho rápido para REGISTRAR UM LANÇAMENTO NOVO: em vez de buscar tudo na
+// nuvem, mesclar e reenviar a lista inteira (2 idas e voltas), manda só esse
+// lançamento pra nuvem acrescentar (1 ida e volta). O backend usa uma trava
+// para não deixar duas máquinas se atropelarem ao gravar ao mesmo tempo.
+// Edições e exclusões continuam usando o caminho completo (save()), que é
+// mais seguro para esses casos.
+function salvarLancamentoRapido(lancamento){
+  salvarLocal();
+  if(!_nuvemDisponivel) return;
+  var payload=corpoFormulario({action:'append', lancamento:lancamento});
+  xhr(API_URL+'?action=append', payload, function(err,data,status,raw){
+    if(err||!data||data.ok!==true){
+      mostrarStatusNuvem('offline');
+      // Se o caminho rápido falhar por algum motivo, cai no caminho completo
+      // (busca+mescla+envia tudo), que é mais lento mas garante que o
+      // lançamento não fique perdido só na tela.
+      salvarNaNuvem();
+      return;
+    }
+    mostrarStatusNuvem('ok');
+    // Mantém o "retrato" local da nuvem em dia, para que a próxima
+    // sincronização completa (edição, exclusão, ou a atualização automática
+    // de 2 em 2 minutos) já saiba que este lançamento existe na nuvem.
+    if(!_cloudSnapshot.lancamentos) _cloudSnapshot.lancamentos=[];
+    var idx=_cloudSnapshot.lancamentos.findIndex(function(l){return l.id===lancamento.id;});
+    if(idx>=0) _cloudSnapshot.lancamentos[idx]=lancamento;
+    else _cloudSnapshot.lancamentos.push(lancamento);
+  });
 }
 
 function buscarDadosNuvem(callback){
